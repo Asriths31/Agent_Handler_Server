@@ -6,8 +6,10 @@ import taskRoutes from './routes/taskRoutes.js';
 
 const app = express();
 
+const frontend_uri=["http://localhost:5173","https://agent-handler-khaki.vercel.app"]
+
 app.use(cors({
-  origin: true,
+  origin: frontend_uri,
   credentials: true
 }));
 
