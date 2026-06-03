@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import User from '../models/user.js';
 import { sendSuccess, sendError } from '../utils/response.js';
+import { addUsernameToFilter, checkUsernameExists } from '../utils/bloomFilter.js';
 
 export const login = async (req, res) => {
   const { email, password } = req.body;
@@ -37,7 +38,8 @@ export const login = async (req, res) => {
       token,
       user: {
         id: user._id,
-        email: user.email
+        email: user.email,
+        username: user.username
       }
     });
   } catch (error) {
@@ -57,10 +59,10 @@ export const logout = async (req, res) => {
 };
 
 export const register = async (req, res) => {
-  const { email, password } = req.body;
+  const { username, email, password } = req.body;
 
-  if (!email || !password) {
-    return sendError(res, 'Please provide email and password', 400);
+  if (!username || !email || !password) {
+    return sendError(res, 'Please provide username, email and password', 400);
   }
 
   try {
@@ -73,18 +75,38 @@ export const register = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, salt);
 
     const user = await User.create({
+      username,
       email,
       password: hashedPassword
     });
 
+    addUsernameToFilter(username);
+
     return sendSuccess(res, 'Registration successful', {
       user: {
         id: user._id,
-        email: user.email
+        email: user.email,
+        username: user.username
       }
     }, 201);
   } catch (error) {
     return sendError(res, error.message, 500);
   }
 };
+
+export const checkUsername = async (req, res) => {
+  const { username } = req.query;
+
+  if (!username) {
+    return sendError(res, 'Username query parameter is required', 400);
+  }
+
+  try {
+    const exists = await checkUsernameExists(username);
+    return sendSuccess(res, 'Username checked successfully', { available: !exists });
+  } catch (error) {
+    return sendError(res, error.message, 500);
+  }
+};
+
 

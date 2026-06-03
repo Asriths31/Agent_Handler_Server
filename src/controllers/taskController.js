@@ -19,7 +19,7 @@ export const uploadTasks = async (req, res) => {
     // Check batch and DB duplicates
     const seenPhonesInBatch = new Set();
     const batchPhones = parsedRecords.map(r => String(r.phone || '').trim()).filter(Boolean);
-    const existingTasks = await Task.find({ phone: { $in: batchPhones } }).select('phone');
+    const existingTasks = await Task.find({ phone: { $in: batchPhones }, userId: req.user._id }).select('phone');
     const existingPhonesInDB = new Set(existingTasks.map(t => String(t.phone || '').trim()));
 
     parsedRecords.forEach((record, index) => {
@@ -67,7 +67,7 @@ export const uploadTasks = async (req, res) => {
 
     let distributed = [];
     if (validRecords.length > 0) {
-      distributed = await distributeTasks(validRecords);
+      distributed = await distributeTasks(validRecords, req.user._id);
     }
 
     if (errorsList.length > 0) {
@@ -117,8 +117,8 @@ export const downloadTemplate = async (req, res) => {
 
 export const getTasksGrouped = async (req, res) => {
   try {
-    const agents = await Agent.find().select('-password').sort({ name: 1 }).lean();
-    const tasks = await Task.find().sort({ createdAt: -1 }).lean();
+    const agents = await Agent.find({ userId: req.user._id }).select('-password').sort({ name: 1 }).lean();
+    const tasks = await Task.find({ userId: req.user._id }).sort({ createdAt: -1 }).lean();
 
     const grouped = agents.map(agent => {
       const agentTasks = tasks.filter(t => t.agentId.toString() === agent._id.toString());
@@ -139,10 +139,10 @@ export const getTasksGrouped = async (req, res) => {
 
 export const getStats = async (req, res) => {
   try {
-    const totalAgents = await Agent.countDocuments();
-    const totalTasks = await Task.countDocuments();
-    const pendingTasks = await Task.countDocuments({ status: 'Pending' });
-    const completedTasks = await Task.countDocuments({ status: 'Completed' });
+    const totalAgents = await Agent.countDocuments({ userId: req.user._id });
+    const totalTasks = await Task.countDocuments({ userId: req.user._id });
+    const pendingTasks = await Task.countDocuments({ status: 'Pending', userId: req.user._id });
+    const completedTasks = await Task.countDocuments({ status: 'Completed', userId: req.user._id });
 
     return sendSuccess(res, 'Stats fetched successfully', {
       totalAgents,
@@ -160,8 +160,8 @@ export const completeTask = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const task = await Task.findByIdAndUpdate(
-      id,
+    const task = await Task.findOneAndUpdate(
+      { _id: id, userId: req.user._id },
       { status: 'Completed' },
       { new: true }
     );
@@ -180,7 +180,7 @@ export const deleteTask = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const task = await Task.findByIdAndDelete(id);
+    const task = await Task.findOneAndDelete({ _id: id, userId: req.user._id });
 
     if (!task) {
       return sendError(res, 'Task not found', 404);

@@ -1,8 +1,8 @@
 import Agent from '../models/agent.js';
 import Task from '../models/task.js';
 
-export const distributeTasks = async (parsedRecords) => {
-  const agents = await Agent.find().sort({ createdAt: 1 });
+export const distributeTasks = async (parsedRecords, userId) => {
+  const agents = await Agent.find({ userId }).sort({ createdAt: 1 });
   if (agents.length === 0) {
     throw new Error('No agents available. Please add at least one agent before distributing tasks.');
   }
@@ -13,7 +13,8 @@ export const distributeTasks = async (parsedRecords) => {
       firstName: record.firstName,
       phone: record.phone,
       notes: record.notes,
-      agentId: assignedAgent._id
+      agentId: assignedAgent._id,
+      userId
     };
   });
 

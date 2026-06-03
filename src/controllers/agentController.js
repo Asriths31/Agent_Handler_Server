@@ -11,7 +11,7 @@ export const addAgent = async (req, res) => {
   }
 
   try {
-    const agentExists = await Agent.findOne({ email });
+    const agentExists = await Agent.findOne({ email, userId: req.user._id });
     if (agentExists) {
       return sendError(res, 'An agent with this email already exists', 400);
     }
@@ -20,6 +20,7 @@ export const addAgent = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, salt);
 
     const agent = await Agent.create({
+      userId: req.user._id,
       name,
       email,
       mobile,
@@ -41,7 +42,7 @@ export const addAgent = async (req, res) => {
 
 export const getAgents = async (req, res) => {
   try {
-    const agents = await Agent.find().select('-password').sort({ createdAt: -1 });
+    const agents = await Agent.find({ userId: req.user._id }).select('-password').sort({ createdAt: -1 });
     return sendSuccess(res, 'Agents fetched successfully', { agents });
   } catch (error) {
     return sendError(res, error.message, 500);
@@ -57,12 +58,12 @@ export const updateAgent = async (req, res) => {
   }
 
   try {
-    const agent = await Agent.findById(id);
+    const agent = await Agent.findOne({ _id: id, userId: req.user._id });
     if (!agent) {
       return sendError(res, 'Agent not found', 404);
     }
 
-    const emailExists = await Agent.findOne({ email, _id: { $ne: id } });
+    const emailExists = await Agent.findOne({ email, userId: req.user._id, _id: { $ne: id } });
     if (emailExists) {
       return sendError(res, 'An agent with this email already exists', 400);
     }
@@ -95,12 +96,12 @@ export const deleteAgent = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const agent = await Agent.findByIdAndDelete(id);
+    const agent = await Agent.findOneAndDelete({ _id: id, userId: req.user._id });
     if (!agent) {
       return sendError(res, 'Agent not found', 404);
     }
 
-    await Task.deleteMany({ agentId: id });
+    await Task.deleteMany({ agentId: id, userId: req.user._id });
 
     return sendSuccess(res, 'Agent and their assigned tasks deleted successfully');
   } catch (error) {
