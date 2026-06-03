@@ -39,5 +39,7 @@ const taskSchema = new mongoose.Schema(
   }
 );
 
+taskSchema.index({ phone: 1, userId: 1 }, { unique: true });
+
 const Task = mongoose.model('Task', taskSchema);
 export default Task;
